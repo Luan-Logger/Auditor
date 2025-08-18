@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { DashboardControls } from "@/components/dashboard-controls"
 import { KPICard } from "@/components/ui/kpi-card"
@@ -14,12 +14,44 @@ import {
   Activity
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { etlService } from "@/services/etl"
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview")
   const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(true)
+  const [kpiData, setKpiData] = useState<any>(null)
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      const kpiResult = await etlService.getKPIMetrics()
+      if (kpiResult.error) {
+        toast({
+          title: "Erro",
+          description: kpiResult.error,
+          variant: "destructive"
+        })
+      } else {
+        setKpiData(kpiResult.data[0])
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar dados do sistema",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   const handleRefresh = () => {
+    loadData()
     toast({
       title: "Dados atualizados",
       description: "Os dados do dashboard foram atualizados com sucesso.",
@@ -57,28 +89,28 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <KPICard
               title="Receita Total"
-              value="R$ 1.2M"
+              value={isLoading ? "Carregando..." : kpiData?.totalRevenue || "R$ 0"}
               change="+12.5% vs último mês"
               changeType="positive"
               icon={DollarSign}
             />
             <KPICard
-              title="Novos Clientes"
-              value="2,847"
+              title="Fornecedores Ativos"
+              value={isLoading ? "Carregando..." : kpiData?.totalCustomers || "0"}
               change="+8.2% vs último mês"
               changeType="positive"
               icon={Users}
             />
             <KPICard
-              title="Conversão"
-              value="3.24%"
+              title="Taxa de Conversão"
+              value={isLoading ? "Carregando..." : kpiData?.conversionRate || "0%"}
               change="-0.3% vs último mês"
               changeType="negative"
               icon={Target}
             />
             <KPICard
-              title="Vendas"
-              value="12,847"
+              title="Total de Vendas"
+              value={isLoading ? "Carregando..." : kpiData?.totalSales || "0"}
               change="+15.7% vs último mês"
               changeType="positive"
               icon={ShoppingCart}
