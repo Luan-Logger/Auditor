@@ -247,7 +247,7 @@ export class ETLService {
       
       const transformedData = Array.from(counts.entries()).map(([origem, count]) => {
         let name = 'Outros'
-        let color = 'hsl(var(--muted-foreground))'
+        let color = 'hsl(var(--chart-worker-dominio))'
         
         if (origem.includes('worker_dominio')) {
           name = 'Worker Dominio'
@@ -273,6 +273,97 @@ export class ETLService {
       return {
         data: [],
         error: error instanceof Error ? error.message : 'Erro ao extrair origens NFSE'
+      }
+    }
+  }
+
+  // Extract Tecnospeed errors
+  async extractTecnospeedErrors(): Promise<ETLQueryResult> {
+    try {
+      const { data, error } = await supabase
+        .from('fis_tecnospeed_request')
+        .select('ds_erro')
+        .gte('dt_created', '2025-07-05')
+        .lte('dt_created', '2025-07-30')
+        .not('ds_erro', 'is', null)
+        .neq('ds_erro', '')
+        .neq('ds_erro', 'Erro de inscrição municipal obrigatório, corrigido com retry especial')
+
+      if (error) throw error
+
+      // Manual aggregation
+      const errorCounts = new Map()
+      data?.forEach(item => {
+        const error = item.ds_erro
+        errorCounts.set(error, (errorCounts.get(error) || 0) + 1)
+      })
+
+      const transformedData = Array.from(errorCounts.entries())
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10) // Top 10 erros
+        .map(([ds_erro, qtd_ocorrencias]) => ({
+          ds_erro: ds_erro.length > 50 ? ds_erro.substring(0, 50) + '...' : ds_erro,
+          qtd_ocorrencias
+        }))
+
+      return { data: transformedData }
+    } catch (error) {
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Erro ao extrair erros do Tecnospeed'
+      }
+    }
+  }
+
+  // Extract NFSe by origin from DFE table
+  async extractNFSEByOriginDFE(): Promise<ETLQueryResult> {
+    try {
+      const { data, error } = await supabase
+        .from('fis_documento_dfe')
+        .select('ds_origem')
+        .eq('ds_tipo', 'NFSE')
+        .gte('dt_created', '2025-06-01')
+        .lte('dt_created', '2025-06-30')
+
+      if (error) throw error
+
+      // Manual aggregation
+      const counts = new Map()
+      data?.forEach(item => {
+        const key = item.ds_origem || 'outros'
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+
+      const total = Array.from(counts.values()).reduce((sum, val) => sum + val, 0)
+      
+      const transformedData = Array.from(counts.entries())
+        .sort(([,a], [,b]) => b - a)
+        .map(([ds_origem, qtd_nfse]) => {
+          let name = 'Outros'
+          let color = 'hsl(var(--muted-foreground))'
+          
+          if (ds_origem === 'DFE_TECNOSPEED_TOMADOS') {
+            name = 'Tecnospeed Tomados'
+            color = 'hsl(var(--chart-tecnospeed))'
+          } else if (ds_origem === 'DFE_SIEG') {
+            name = 'DFE Sieg'
+            color = 'hsl(var(--chart-sieg))'
+          }
+
+          return {
+            name,
+            ds_origem,
+            qtd_nfse,
+            perc: Math.round((qtd_nfse / total) * 100 * 100) / 100,
+            color
+          }
+        })
+
+      return { data: transformedData }
+    } catch (error) {
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Erro ao extrair NFSe por origem DFE'
       }
     }
   }

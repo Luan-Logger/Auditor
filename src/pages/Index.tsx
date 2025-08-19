@@ -6,6 +6,8 @@ import { RevenueChart } from "@/components/charts/revenue-chart"
 import { DistributionChart } from "@/components/charts/distribution-chart"
 import { RegionalBarChart } from "@/components/charts/bar-chart"
 import { NFSEOriginsChart } from "@/components/charts/nfse-origins-chart"
+import { TecnospeedErrorsChart } from "@/components/charts/tecnospeed-errors-chart"
+import { NFSEDFEOriginsChart } from "@/components/charts/nfse-dfe-origins-chart"
 import { 
   TrendingUp, 
   Users, 
@@ -91,8 +93,11 @@ const Index = () => {
             <div className="lg:col-span-1">
               <NFSEOriginsChart />
             </div>
-            <div className="lg:col-span-2">
-              {/* Espaço para outros indicativos */}
+            <div className="lg:col-span-1">
+              <NFSEDFEOriginsChart />
+            </div>
+            <div className="lg:col-span-1">
+              <TecnospeedErrorsChart />
             </div>
           </div>
 
