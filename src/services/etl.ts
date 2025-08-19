@@ -219,6 +219,64 @@ export class ETLService {
     return months[parseInt(month) - 1] || month
   }
 
+  // Extract NFSE origins distribution
+  async extractNFSEOrigins(): Promise<ETLQueryResult> {
+    try {
+      const { data, error } = await supabase
+        .from('fis_documento')
+        .select('ds_origem')
+        .eq('ds_tipo', 'NFSE')
+        .gte('dt_created', '2025-07-01')
+        .in('ds_origem', [
+          '{"sistema": "worker_dominio"}',
+          '{"sistema": "api_sieg"}', 
+          '{"sistema": "api_tecnospeed"}',
+          '{"sistema": "tecnoSpeed"}'
+        ])
+
+      if (error) throw error
+
+      // Manual aggregation
+      const counts = new Map()
+      data?.forEach(item => {
+        const key = item.ds_origem || 'outros'
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+
+      const total = Array.from(counts.values()).reduce((sum, val) => sum + val, 0)
+      
+      const transformedData = Array.from(counts.entries()).map(([origem, count]) => {
+        let name = 'Outros'
+        let color = 'hsl(var(--muted-foreground))'
+        
+        if (origem.includes('worker_dominio')) {
+          name = 'Worker Dominio'
+          color = 'hsl(var(--chart-worker-dominio))'
+        } else if (origem.includes('api_sieg')) {
+          name = 'API Sieg'
+          color = 'hsl(var(--chart-sieg))'
+        } else if (origem.includes('tecnospeed')) {
+          name = 'Tecnospeed'
+          color = 'hsl(var(--chart-tecnospeed))'
+        }
+
+        return {
+          name,
+          value: Math.round((count / total) * 100 * 100) / 100,
+          total: count,
+          color
+        }
+      })
+
+      return { data: transformedData }
+    } catch (error) {
+      return {
+        data: [],
+        error: error instanceof Error ? error.message : 'Erro ao extrair origens NFSE'
+      }
+    }
+  }
+
   // Get KPI metrics
   async getKPIMetrics(): Promise<ETLQueryResult> {
     try {

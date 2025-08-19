@@ -5,6 +5,7 @@ import { KPICard } from "@/components/ui/kpi-card"
 import { RevenueChart } from "@/components/charts/revenue-chart"
 import { DistributionChart } from "@/components/charts/distribution-chart"
 import { RegionalBarChart } from "@/components/charts/bar-chart"
+import { NFSEOriginsChart } from "@/components/charts/nfse-origins-chart"
 import { 
   TrendingUp, 
   Users, 
@@ -84,6 +85,16 @@ const Index = () => {
 
           {/* Controls */}
           <DashboardControls onRefresh={handleRefresh} onExport={handleExport} />
+
+          {/* NFSE Origins Chart - Primeiro indicativo */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <NFSEOriginsChart />
+            </div>
+            <div className="lg:col-span-2">
+              {/* Espaço para outros indicativos */}
+            </div>
+          </div>
 
           {/* KPIs Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
