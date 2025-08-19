@@ -237,25 +237,26 @@ export class ETLService {
       if (error) throw error
 
       // Manual aggregation
-      const counts = new Map()
-      data?.forEach(item => {
-        const key = item.ds_origem || 'outros'
-        counts.set(key, (counts.get(key) || 0) + 1)
+      const counts = new Map<string, number>()
+      data?.forEach((item: any) => {
+        const key = (item?.ds_origem?.sistema as string | undefined) ?? 'outros'
+        const k = key.toLowerCase()
+        counts.set(k, (counts.get(k) || 0) + 1)
       })
 
       const total = Array.from(counts.values()).reduce((sum, val) => sum + val, 0)
       
-      const transformedData = Array.from(counts.entries()).map(([origem, count]) => {
+      const transformedData = Array.from(counts.entries()).map(([key, count]) => {
         let name = 'Outros'
-        let color = 'hsl(var(--chart-worker-dominio))'
+        let color = 'hsl(var(--muted-foreground))'
         
-        if (origem.includes('worker_dominio')) {
+        if (key.includes('worker_dominio')) {
           name = 'Worker Dominio'
           color = 'hsl(var(--chart-worker-dominio))'
-        } else if (origem.includes('api_sieg')) {
+        } else if (key.includes('sieg')) {
           name = 'API Sieg'
           color = 'hsl(var(--chart-sieg))'
-        } else if (origem.includes('tecnospeed')) {
+        } else if (key.includes('tecno')) {
           name = 'Tecnospeed'
           color = 'hsl(var(--chart-tecnospeed))'
         }
@@ -284,7 +285,7 @@ export class ETLService {
         .from('fis_tecnospeed_request')
         .select('ds_erro')
         .gte('dt_created', '2025-07-05')
-        .lte('dt_created', '2025-07-30')
+        .lt('dt_created', '2025-07-31')
         .not('ds_erro', 'is', null)
         .neq('ds_erro', '')
         .neq('ds_erro', 'Erro de inscrição municipal obrigatório, corrigido com retry especial')
@@ -323,7 +324,7 @@ export class ETLService {
         .select('ds_origem')
         .eq('ds_tipo', 'NFSE')
         .gte('dt_created', '2025-06-01')
-        .lte('dt_created', '2025-06-30')
+        .lt('dt_created', '2025-07-01')
 
       if (error) throw error
 

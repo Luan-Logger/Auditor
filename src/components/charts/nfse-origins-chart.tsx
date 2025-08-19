@@ -21,6 +21,7 @@ export function NFSEOriginsChart() {
             variant: "destructive"
           })
         } else {
+          console.log('NFSEOrigins data', result.data)
           setData(result.data)
         }
       } catch (error) {
