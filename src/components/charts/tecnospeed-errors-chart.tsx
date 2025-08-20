@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { etlService } from "@/services/etl"
 import { useToast } from "@/hooks/use-toast"
 
-export function TecnospeedErrorsChart() {
+export function TecnospeedErrorsChart({ startDate, endDate }: { startDate?: string; endDate?: string }) {
   const [data, setData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
@@ -13,7 +13,7 @@ export function TecnospeedErrorsChart() {
     const loadData = async () => {
       setIsLoading(true)
       try {
-        const result = await etlService.extractTecnospeedErrors()
+        const result = await etlService.extractTecnospeedErrors(startDate, endDate)
         if (result.error) {
           toast({
             title: "Erro",
@@ -21,6 +21,7 @@ export function TecnospeedErrorsChart() {
             variant: "destructive"
           })
         } else {
+          console.debug('Tecno errors raw', result.data)
           setData(result.data)
         }
       } catch (error) {
@@ -35,7 +36,7 @@ export function TecnospeedErrorsChart() {
     }
 
     loadData()
-  }, [toast])
+  }, [toast, startDate, endDate])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -70,31 +71,36 @@ export function TecnospeedErrorsChart() {
     <Card className="shadow-md">
       <CardHeader>
         <CardTitle>Erros Tecnospeed</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Top 10 erros mais frequentes (05-30 Jul/2025)
-        </p>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={data}
-              margin={{ top: 5, right: 30, left: 20, bottom: 80 }}
+              margin={{ top: 10, right: 30, left: 10, bottom: 90 }}
             >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="ds_erro" 
-                angle={-45}
+              <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+              <XAxis
+                dataKey="ds_erro"
+                angle={-35}
                 textAnchor="end"
-                height={80}
+                height={90}
                 className="text-xs fill-muted-foreground"
+                tick={{ fontSize: 11 }}
               />
               <YAxis className="fill-muted-foreground" />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar 
-                dataKey="qtd_ocorrencias" 
-                fill="hsl(var(--destructive))"
-                radius={[4, 4, 0, 0]}
+              <Tooltip
+                content={<CustomTooltip />}
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 8
+                 }}
+              />
+              <Bar
+                dataKey="qtd_ocorrencias"
+                fill="hsl(var(--chart-tecnospeed))"
+                radius={[6, 6, 6, 6]}
               />
             </BarChart>
           </ResponsiveContainer>

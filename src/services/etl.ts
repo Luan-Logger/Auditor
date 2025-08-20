@@ -7,7 +7,7 @@ export interface ETLQueryResult {
 }
 
 export class ETLService {
-  
+
   // Extract revenue data from fiscal documents
   async extractRevenueData(startDate?: string, endDate?: string): Promise<ETLQueryResult> {
     try {
@@ -28,7 +28,7 @@ export class ETLService {
 
       // Transform data for BI charts
       const transformedData = this.transformRevenueData(data || [])
-      
+
       return {
         data: transformedData,
         totalRecords: count || 0
@@ -77,7 +77,7 @@ export class ETLService {
 
       // Transform and aggregate by region
       const regionData = this.aggregateByRegion(data || [])
-      
+
       return {
         data: regionData
       }
@@ -102,7 +102,7 @@ export class ETLService {
 
       // Group by product categories
       const categoryData = this.groupByCategory(data || [])
-      
+
       return {
         data: categoryData
       }
@@ -117,13 +117,13 @@ export class ETLService {
   // Transform revenue data for charts
   private transformRevenueData(data: any[]) {
     const monthlyRevenue = new Map()
-    
+
     data.forEach(item => {
       if (item.dt_emissao && item.vl_nf) {
         const date = new Date(item.dt_emissao)
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         const value = parseFloat(item.vl_nf) || 0
-        
+
         if (monthlyRevenue.has(monthKey)) {
           monthlyRevenue.set(monthKey, monthlyRevenue.get(monthKey) + value)
         } else {
@@ -145,12 +145,12 @@ export class ETLService {
   // Aggregate sales by region
   private aggregateByRegion(data: any[]) {
     const regionTotals = new Map()
-    
+
     data.forEach(item => {
       if (item.ds_uf && item.vl_nf) {
         const uf = item.ds_uf
         const value = parseFloat(item.vl_nf) || 0
-        
+
         if (regionTotals.has(uf)) {
           regionTotals.set(uf, regionTotals.get(uf) + value)
         } else {
@@ -171,13 +171,13 @@ export class ETLService {
   // Group products by category
   private groupByCategory(data: any[]) {
     const categories = new Map()
-    
+
     data.forEach(item => {
       if (item.ds_produto && item.vl_total) {
         // Simple categorization based on product name keywords
         const category = this.categorizeProduct(item.ds_produto)
         const value = parseFloat(item.vl_total) || 0
-        
+
         if (categories.has(category)) {
           categories.set(category, categories.get(category) + value)
         } else {
@@ -187,7 +187,7 @@ export class ETLService {
     })
 
     const total = Array.from(categories.values()).reduce((sum, val) => sum + val, 0)
-    
+
     return Array.from(categories.entries())
       .sort(([, a], [, b]) => b - a)
       .slice(0, 6) // Top 6 categories
@@ -201,14 +201,14 @@ export class ETLService {
   // Simple product categorization
   private categorizeProduct(productName: string): string {
     const name = productName.toLowerCase()
-    
+
     if (name.includes('combustivel') || name.includes('gasolina') || name.includes('diesel')) return 'Combustíveis'
     if (name.includes('medicamento') || name.includes('farmacia')) return 'Medicamentos'
     if (name.includes('alimento') || name.includes('comida')) return 'Alimentos'
     if (name.includes('roupa') || name.includes('vestir')) return 'Vestuário'
     if (name.includes('equipamento') || name.includes('maquina')) return 'Equipamentos'
     if (name.includes('servico') || name.includes('manutencao')) return 'Serviços'
-    
+
     return 'Outros'
   }
 
@@ -220,49 +220,68 @@ export class ETLService {
   }
 
   // Extract NFSE origins distribution
-  async extractNFSEOrigins(): Promise<ETLQueryResult> {
+  async extractNFSEOrigins(startDate?: string, endDate?: string): Promise<ETLQueryResult> {
     try {
-      const { data, error } = await supabase
+      // removed date and in-filters so the UI controls on the page can apply filtering
+      let query: any = supabase
         .from('fis_documento')
         .select('ds_origem')
         .eq('ds_tipo', 'NFSE')
-        .gte('dt_created', '2025-07-01')
-        .in('ds_origem', [
-          '{"sistema": "worker_dominio"}',
-          '{"sistema": "api_sieg"}', 
-          '{"sistema": "api_tecnospeed"}',
-          '{"sistema": "tecnoSpeed"}'
-        ])
+
+      if (startDate) query = query.gte('dt_created', startDate)
+      if (endDate) query = query.lt('dt_created', endDate)
+
+      const { data, error } = await query
 
       if (error) throw error
 
-      // Manual aggregation
+      // Manual aggregation with robust parsing (handles JSON object, JSON string or plain string)
       const counts = new Map<string, number>()
       data?.forEach((item: any) => {
-        const key = (item?.ds_origem?.sistema as string | undefined) ?? 'outros'
-        const k = key.toLowerCase()
+        let key = 'outros'
+        const raw = item?.ds_origem
+
+        if (raw) {
+          if (typeof raw === 'object') {
+            key = raw.sistema || JSON.stringify(raw)
+          } else if (typeof raw === 'string') {
+            try {
+              const parsed = JSON.parse(raw)
+              key = parsed?.sistema || raw
+            } catch {
+              key = raw
+            }
+          } else {
+            key = String(raw)
+          }
+        }
+
+        const k = String(key).toLowerCase()
         counts.set(k, (counts.get(k) || 0) + 1)
       })
 
       const total = Array.from(counts.values()).reduce((sum, val) => sum + val, 0)
-      
+      if (total === 0) return { data: [] }
+
       const transformedData = Array.from(counts.entries()).map(([key, count]) => {
         let name = 'Outros'
         let color = 'hsl(var(--muted-foreground))'
-        
-        if (key.includes('worker_dominio')) {
+
+        if (key.includes('worker')) {
           name = 'Worker Dominio'
           color = 'hsl(var(--chart-worker-dominio))'
         } else if (key.includes('sieg')) {
           name = 'API Sieg'
           color = 'hsl(var(--chart-sieg))'
         } else if (key.includes('tecno')) {
+          // unify any tecnospeed variations into a single label
           name = 'Tecnospeed'
           color = 'hsl(var(--chart-tecnospeed))'
         }
 
         return {
           name,
+          // keep percentage with two decimals
           value: Math.round((count / total) * 100 * 100) / 100,
           total: count,
           color
@@ -279,28 +298,35 @@ export class ETLService {
   }
 
   // Extract Tecnospeed errors
-  async extractTecnospeedErrors(): Promise<ETLQueryResult> {
+  async extractTecnospeedErrors(startDate?: string, endDate?: string): Promise<ETLQueryResult> {
     try {
-      const { data, error } = await supabase
+      // removed fixed date window so page-level filters can control the timeframe
+      let q: any = supabase
         .from('fis_tecnospeed_request')
         .select('ds_erro')
-        .gte('dt_created', '2025-07-05')
-        .lt('dt_created', '2025-07-31')
         .not('ds_erro', 'is', null)
         .neq('ds_erro', '')
         .neq('ds_erro', 'Erro de inscrição municipal obrigatório, corrigido com retry especial')
 
+      if (startDate) q = q.gte('dt_created', startDate)
+      if (endDate) q = q.lt('dt_created', endDate)
+
+      const { data, error } = await q
+
       if (error) throw error
 
-      // Manual aggregation
-      const errorCounts = new Map()
-      data?.forEach(item => {
-        const error = item.ds_erro
-        errorCounts.set(error, (errorCounts.get(error) || 0) + 1)
+      // Manual aggregation (trim & normalize error text)
+      const errorCounts = new Map<string, number>()
+      data?.forEach((item: any) => {
+        const raw = item?.ds_erro
+        if (!raw) return
+        const key = String(raw).trim()
+        if (!key) return
+        errorCounts.set(key, (errorCounts.get(key) || 0) + 1)
       })
 
       const transformedData = Array.from(errorCounts.entries())
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .slice(0, 10) // Top 10 erros
         .map(([ds_erro, qtd_ocorrencias]) => ({
           ds_erro: ds_erro.length > 50 ? ds_erro.substring(0, 50) + '...' : ds_erro,
@@ -317,38 +343,55 @@ export class ETLService {
   }
 
   // Extract NFSe by origin from DFE table
-  async extractNFSEByOriginDFE(): Promise<ETLQueryResult> {
+  async extractNFSEByOriginDFE(startDate?: string, endDate?: string): Promise<ETLQueryResult> {
     try {
-      const { data, error } = await supabase
+      // removed date filters so timeframe is handled by UI
+      let q: any = supabase
         .from('fis_documento_dfe')
         .select('ds_origem')
         .eq('ds_tipo', 'NFSE')
-        .gte('dt_created', '2025-06-01')
-        .lt('dt_created', '2025-07-01')
+
+      if (startDate) q = q.gte('dt_created', startDate)
+      if (endDate) q = q.lt('dt_created', endDate)
+
+      const { data, error } = await q
 
       if (error) throw error
 
-      // Manual aggregation
-      const counts = new Map()
-      data?.forEach(item => {
-        const key = item.ds_origem || 'outros'
+      // Manual aggregation with friendly name normalization
+      const counts = new Map<string, number>()
+      data?.forEach((item: any) => {
+        let key = item?.ds_origem || 'outros'
+
+        // if origin contains ':' take the last segment, else use full string
+        if (typeof key === 'string' && key.includes(':')) {
+          const parts = key.split(':')
+          key = parts[parts.length - 1]
+        }
+
         counts.set(key, (counts.get(key) || 0) + 1)
       })
 
       const total = Array.from(counts.values()).reduce((sum, val) => sum + val, 0)
-      
+      if (total === 0) return { data: [] }
+
       const transformedData = Array.from(counts.entries())
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .map(([ds_origem, qtd_nfse]) => {
           let name = 'Outros'
           let color = 'hsl(var(--muted-foreground))'
-          
-          if (ds_origem === 'DFE_TECNOSPEED_TOMADOS') {
+
+          // unify tecnospeed-related keys
+          if (String(ds_origem).toUpperCase().includes('TECNOSPEED')) {
             name = 'Tecnospeed Tomados'
             color = 'hsl(var(--chart-tecnospeed))'
-          } else if (ds_origem === 'DFE_SIEG') {
+          } else if (String(ds_origem).toUpperCase().includes('SIEG')) {
             name = 'DFE Sieg'
             color = 'hsl(var(--chart-sieg))'
+          } else {
+            // make a shorter, human-friendly label for other keys
+            const short = String(ds_origem).replace(/_/g, ' ')
+            name = short.charAt(0).toUpperCase() + short.slice(1).toLowerCase()
           }
 
           return {

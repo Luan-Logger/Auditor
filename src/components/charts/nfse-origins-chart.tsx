@@ -4,39 +4,39 @@ import { useState, useEffect } from "react"
 import { etlService } from "@/services/etl"
 import { useToast } from "@/hooks/use-toast"
 
-export function NFSEOriginsChart() {
-  const [data, setData] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const { toast } = useToast()
+export function NFSEOriginsChart({ startDate, endDate }: { startDate?: string; endDate?: string }) {
+   const [data, setData] = useState<any[]>([])
+   const [isLoading, setIsLoading] = useState(true)
+   const { toast } = useToast()
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true)
-      try {
-        const result = await etlService.extractNFSEOrigins()
-        if (result.error) {
-          toast({
-            title: "Erro",
-            description: result.error,
-            variant: "destructive"
-          })
-        } else {
-          console.log('NFSEOrigins data', result.data)
-          setData(result.data)
-        }
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: "Falha ao carregar dados de origens NFSE",
-          variant: "destructive"
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
+   useEffect(() => {
+     const loadData = async () => {
+       setIsLoading(true)
+       try {
+         const result = await etlService.extractNFSEOrigins(startDate, endDate)
+         if (result.error) {
+           toast({
+             title: "Erro",
+             description: result.error,
+             variant: "destructive"
+           })
+         } else {
+           console.log('NFSEOrigins data', result.data)
+           setData(result.data)
+         }
+       } catch (error) {
+         toast({
+           title: "Erro",
+           description: "Falha ao carregar dados de origens NFSE",
+           variant: "destructive"
+         })
+       } finally {
+         setIsLoading(false)
+       }
+     }
 
-    loadData()
-  }, [toast])
+     loadData()
+   }, [toast, startDate, endDate])
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -58,7 +58,7 @@ export function NFSEOriginsChart() {
 
   const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
     if (percent < 5) return null // Don't show label for small slices
-    
+
     const RADIAN = Math.PI / 180
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
@@ -97,9 +97,6 @@ export function NFSEOriginsChart() {
     <Card className="shadow-md">
       <CardHeader>
         <CardTitle>Origens das NFSE</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Distribuição por sistema desde julho/2025
-        </p>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -110,25 +107,33 @@ export function NFSEOriginsChart() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={CustomLabel}
-                outerRadius={100}
-                innerRadius={40}
+                label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
-              >
+             >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={{
-                  paddingTop: '20px',
-                  fontSize: '14px'
+              <Tooltip
+                content={<CustomTooltip />}
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 8
                 }}
-                formatter={(value, entry: any) => 
-                  `${value} (${entry.payload.total})`
-                }
+              />
+              <Legend
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{
+                  marginTop: 12,
+                  fontSize: 13,
+                  color: 'hsl(var(--muted-foreground))'
+                }}
+                formatter={(value, entry: any) => `${value} (${entry.payload.total})`}
               />
             </PieChart>
           </ResponsiveContainer>

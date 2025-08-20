@@ -1,10 +1,10 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from 'react'
 import { etlService } from "@/services/etl"
 import { useToast } from "@/hooks/use-toast"
 
-export function NFSEDFEOriginsChart() {
+export function NFSEDFEOriginsChart({ startDate, endDate }: { startDate?: string; endDate?: string }) {
   const [data, setData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
@@ -13,7 +13,7 @@ export function NFSEDFEOriginsChart() {
     const loadData = async () => {
       setIsLoading(true)
       try {
-        const result = await etlService.extractNFSEByOriginDFE()
+        const result = await etlService.extractNFSEByOriginDFE(startDate, endDate)
         if (result.error) {
           toast({
             title: "Erro",
@@ -21,6 +21,7 @@ export function NFSEDFEOriginsChart() {
             variant: "destructive"
           })
         } else {
+          console.debug('NFSE DFE raw', result.data)
           setData(result.data)
         }
       } catch (error) {
@@ -35,7 +36,7 @@ export function NFSEDFEOriginsChart() {
     }
 
     loadData()
-  }, [toast])
+  }, [toast, startDate, endDate])
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -74,9 +75,6 @@ export function NFSEDFEOriginsChart() {
     <Card className="shadow-md">
       <CardHeader>
         <CardTitle>NFSe por Origem (DFE)</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Distribuição junho/2025
-        </p>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -86,23 +84,33 @@ export function NFSEDFEOriginsChart() {
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={40}
+                labelLine={false}
+                label={({ name, payload }: any) => `${name} (${payload.qtd_nfse})`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="qtd_nfse"
-                label={({ name, perc }) => `${name}: ${perc}%`}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={{
-                  paddingTop: '20px',
-                  fontSize: '14px'
+              <Tooltip
+                content={<CustomTooltip />}
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 8,
                 }}
-                formatter={(value, entry: any) => 
+              />
+              <Legend
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{
+                  marginTop: 12,
+                  fontSize: 13
+                }}
+                formatter={(value, entry: any) =>
                   `${value} (${entry.payload.qtd_nfse})`
                 }
               />

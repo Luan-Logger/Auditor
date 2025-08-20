@@ -8,10 +8,10 @@ import { RegionalBarChart } from "@/components/charts/bar-chart"
 import { NFSEOriginsChart } from "@/components/charts/nfse-origins-chart"
 import { TecnospeedErrorsChart } from "@/components/charts/tecnospeed-errors-chart"
 import { NFSEDFEOriginsChart } from "@/components/charts/nfse-dfe-origins-chart"
-import { 
-  TrendingUp, 
-  Users, 
-  ShoppingCart, 
+import {
+  TrendingUp,
+  Users,
+  ShoppingCart,
   DollarSign,
   Target,
   Activity
@@ -24,6 +24,7 @@ const Index = () => {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [kpiData, setKpiData] = useState<any>(null)
+  const [dateRange, setDateRange] = useState<{start?: string; end?: string} | null>(null)
 
   const loadData = async () => {
     setIsLoading(true)
@@ -61,6 +62,12 @@ const Index = () => {
     })
   }
 
+  const handleDateRangeChange = (range: { start?: string; end?: string } | null) => {
+    setDateRange(range)
+    // reload KPI + charts - KPI uses full data but can be updated as needed
+    loadData()
+  }
+
   const handleExport = () => {
     toast({
       title: "Exportação iniciada",
@@ -71,7 +78,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <DashboardSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      
+
       {/* Main Content */}
       <div className="lg:pl-64">
         <div className="p-6 lg:p-8 space-y-6">
@@ -86,18 +93,18 @@ const Index = () => {
           </div>
 
           {/* Controls */}
-          <DashboardControls onRefresh={handleRefresh} onExport={handleExport} />
+          <DashboardControls onRefresh={handleRefresh} onExport={handleExport} onDateRangeChange={handleDateRangeChange} />
 
           {/* NFSE Origins Chart - Primeiro indicativo */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-              <NFSEOriginsChart />
+              <NFSEOriginsChart startDate={dateRange?.start} endDate={dateRange?.end} />
             </div>
             <div className="lg:col-span-1">
-              <NFSEDFEOriginsChart />
+              <NFSEDFEOriginsChart startDate={dateRange?.start} endDate={dateRange?.end} />
             </div>
             <div className="lg:col-span-1">
-              <TecnospeedErrorsChart />
+              <TecnospeedErrorsChart startDate={dateRange?.start} endDate={dateRange?.end} />
             </div>
           </div>
 
